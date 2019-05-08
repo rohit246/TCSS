@@ -3,7 +3,6 @@ import __init__
 import processor.preprocess_db
 from processor.node import node
 from processor.edge import edge
-from processor.pta import pta
 import processor.dummy_processing
 import processor.detectLandmarkInTrail
 import sql.mysql_helper
@@ -67,12 +66,7 @@ def sec_to_hms(ttd):
 
 	return str(ttd)
 
-'''
-Create a network graph for a given route. This graph will be a PTA.
-edges - The set of edges in the network
-route - Expected route of the user
-valid_lms - set of landmarks to be used for creating the PTA
-'''
+
 def create_network_graph(edges, route, valid_lms):
 	
 	for n in graph.G.keys():
@@ -80,9 +74,7 @@ def create_network_graph(edges, route, valid_lms):
 			print e.l.Lm, e.d.Lm
 	return graph
 
-'''
-Create a new PTA for a different probable route
-'''
+
 def get_new_route(uid, rlist, lastlm):
 
 	tz = user_routes[uid]['timezone']
@@ -96,7 +88,7 @@ def get_new_route(uid, rlist, lastlm):
 	return None, None
 	
 
-def search_pta(uid, lm, lastlm):
+def search_graph(uid, lm, lastlm):
 
 	start = lastlm
 	route_info = user_routes[uid]
@@ -113,10 +105,6 @@ def search_pta(uid, lm, lastlm):
 			else:
 				start = n
 				break
-	#op.write(lm+' '+start.Lm+' ')
-	op.write(start.Lm+':')
-	for e in route_network.G[start]:
-		op.write(e.l.Lm+' '+ e.d.Lm + ' ' + str(e.g)+' '+ str(e.s) + ' '+ str(e.p)+' '+str((user_routes[uid]['current_time'] - user_routes[uid]['last_detection_time']).total_seconds())+'\n')
 	new_ldl = ''
 	for e in route_network.G[start]:
 		success = False
@@ -245,34 +233,6 @@ def getLatLng(ldata,cdata,latlng):
 	rep=str(lat2)+","+str(lon2)
 	return rep
 
-
-def snaptoroad(pos):
-	try:
-		reqstr="https://roads.googleapis.com/v1/snapToRoads?path="+pos+"&interpolate=true&key=AIzaSyC4UK1cVNj0auLVK3MlovkMHsohNiiH-2s"
-		res=requests.get(reqstr)
-		jll=json.loads(res.text)
-		new_pos = str(jll['snappedPoints'][0]['location']['latitude'])+","+str(jll['snappedPoints'][0]['location']['longitude'])
-	except:
-		new_pos = pos
-	return new_pos
-	
-def update_acceleration(ldata, uid):
-	a = 0
-	for data in ldata:
-		l1 = data.strip().split(',')
-		a1 = float(l1[0])
-		a2 = float(l1[1])
-		a3 = float(l1[2])
-		a+=(sqrt((a1*a1)+(a2*a2)+(a3*a3)))
-	
-	try:
-		time_from_last_detection = (user_routes[uid]['current_time'] - user_routes[uid]['last_detection_time']).total_seconds()
-	except TypeError:
-		print 'typeError',user_routes[uid]['current_time']
-	prev_readings = int((time_from_last_detection/3)*2)
-	avg_acc = ((user_routes[uid]['acc']*prev_readings)+a)/(prev_readings+len(ldata))
-	return avg_acc
-
 def get_ttd_from_trail(ldata, cdata, uid, X, Y, Z):
 
 	lm = processor.detectLandmarkInTrail.detect_landmark(ldata, cdata, X, Y, Z)
@@ -287,10 +247,7 @@ def get_ttd_from_trail(ldata, cdata, uid, X, Y, Z):
 
 	user_routes[uid]['last_detected'] = lm
 	
-	user_routes[uid]['acc'] = update_acceleration(ldata, uid)
-	print 'acc',user_routes[uid]['acc']
-	
-	searched_lm = search_pta(uid, lm.strip(), user_routes[uid]['last_landmark'])
+	searched_lm = search_graph(uid, lm.strip(), user_routes[uid]['last_landmark'])
 	if searched_lm == '':
 		user_routes[uid]['last_landmark'].Pos = getLatLng(ldata,cdata,user_routes[uid]['last_landmark'].Pos)
 		#user_routes[uid]['last_landmark'].Pos = snaptoroad(user_routes[uid]['last_landmark'].Pos)
@@ -366,10 +323,7 @@ def api_ttd(uid, acc, lacc, comp):
 	return ttd
 
 
-'''
-Initializing the application for this run. Gets source and destination from user.
-Creates a PTA for the route and returns the time to destination to client
-'''
+
 @app.route('/initializing', methods = ['POST'])
 def api_intializing():
 	if 'application/json' in request.headers['Content-Type']:
