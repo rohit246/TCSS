@@ -237,34 +237,6 @@ def getLatLng(ldata,cdata,latlng):
 	rep=str(lat2)+","+str(lon2)
 	return rep
 
-
-def snaptoroad(pos):
-	try:
-		reqstr="https://roads.googleapis.com/v1/snapToRoads?path="+pos+"&interpolate=true&key=AIzaSyC4UK1cVNj0auLVK3MlovkMHsohNiiH-2s"
-		res=requests.get(reqstr)
-		jll=json.loads(res.text)
-		new_pos = str(jll['snappedPoints'][0]['location']['latitude'])+","+str(jll['snappedPoints'][0]['location']['longitude'])
-	except:
-		new_pos = pos
-	return new_pos
-	
-def update_acceleration(ldata, uid):
-	a = 0
-	for data in ldata:
-		l1 = data.strip().split(',')
-		a1 = float(l1[0])
-		a2 = float(l1[1])
-		a3 = float(l1[2])
-		a+=(sqrt((a1*a1)+(a2*a2)+(a3*a3)))
-	
-	try:
-		time_from_last_detection = (user_routes[uid]['current_time'] - user_routes[uid]['last_detection_time']).total_seconds()
-	except TypeError:
-		print 'typeError',user_routes[uid]['current_time']
-	prev_readings = int((time_from_last_detection/3)*2)
-	avg_acc = ((user_routes[uid]['acc']*prev_readings)+a)/(prev_readings+len(ldata))
-	return avg_acc
-
 def get_ttd_from_trail(ldata, cdata, uid, X, Y, Z):
 
 	lm = processor.detectLandmarkInTrail.detect_landmark(ldata, cdata, X, Y, Z)
@@ -278,9 +250,6 @@ def get_ttd_from_trail(ldata, cdata, uid, X, Y, Z):
 		return res_string
 
 	user_routes[uid]['last_detected'] = lm
-	
-	user_routes[uid]['acc'] = update_acceleration(ldata, uid)
-	print 'acc',user_routes[uid]['acc']
 	
 	searched_lm = search_nwgraph(uid, lm.strip(), user_routes[uid]['last_landmark'])
 	if searched_lm == '':
